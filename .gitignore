@@ -1,0 +1,40 @@
+# Python and environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+.ipynb_checkpoints/
+
+# Project outputs, inputs, research archives
+outputs/
+exploratory_survival_figures/
+data/
+external/
+gbsg_cohort/
+*.csv
+*.tsv
+*.h5
+*.hdf5
+*.npz
+*.pkl
+*.pickle
+*.pt
+*.pth
+*.ckpt
+*.zip
+*.tar*
+*.log
+
+# Secrets and local credentials
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# System files
+.DS_Store
+Thumbs.db

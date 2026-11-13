@@ -1,0 +1,68 @@
+# Full-study configuration. Inherits everything (data paths, seed, datasets, horizons,
+# analysis rules, IPCW flags, model defaults, thresholds) from pilot_config.yaml.
+base_config: pilot_config.yaml
+
+full_study:
+  output_subdir: full               # results in outputs/full/
+  max_repetitions: 20               # outer splits 0..19; split r is identical across runs
+  # Event budgets: the frozen design's feasible ladder per dataset (outputs/frozen_design.json),
+  # i.e. budget_ladder [50, 100, 200, 400, 800, 1600, full] restricted to < development-pool events.
+
+  tuning:
+    # Same 4 predefined configurations per model family; each is fitted on the training-derived
+    # fit partition (80%) and scored by IBS on the training-derived validation partition (20%,
+    # shared by all models). Cox/RSF/GBSA are then refitted on the whole training subset;
+    # neural models keep the selected run (early stopping on the same validation partition).
+    criterion: validation_IBS
+    grids:
+      cox_ridge:
+        - {alpha: 0.1}
+        - {alpha: 1.0}
+        - {alpha: 10.0}
+        - {alpha: 100.0}
+      rsf:
+        - {n_estimators: 300, min_samples_leaf: 5, max_features: sqrt}
+        - {n_estimators: 300, min_samples_leaf: 15, max_features: sqrt}
+        - {n_estimators: 300, min_samples_leaf: 15, max_features: 0.5}
+        - {n_estimators: 300, min_samples_leaf: 30, max_features: 0.5}
+      gbsa:
+        - {n_estimators: 200, learning_rate: 0.05, max_depth: 1}
+        - {n_estimators: 300, learning_rate: 0.05, max_depth: 2}
+        - {n_estimators: 500, learning_rate: 0.05, max_depth: 2}
+        - {n_estimators: 300, learning_rate: 0.10, max_depth: 3}
+      deepsurv:
+        - {hidden: [32, 32], dropout: 0.1}
+        - {hidden: [32, 32], dropout: 0.3}
+        - {hidden: [64, 64], dropout: 0.1}
+        - {hidden: [64, 64], dropout: 0.3}
+      logistic_hazard:
+        - {hidden: [32, 32], dropout: 0.1}
+        - {hidden: [32, 32], dropout: 0.3}
+        - {hidden: [64, 64], dropout: 0.1}
+        - {hidden: [64, 64], dropout: 0.3}
+
+  stability:
+    repetitions: 5                  # outer splits 0..4 (complete within the 5-repetition stage)
+    bootstrap: 10                   # refits of the selected configuration per task
+    # Neural refits bootstrap the fit partition and keep the validation partition for stopping.
+
+  conditional_ipcw:                 # sensitivity analysis (datasets from pilot_config ipcw list)
+    min_G: 0.05                     # weight stabilisation: G floored at 0.05 (max weight 20)
+    penalizer: 0.01
+    include_cohort: true            # GBSG: add verified cohort indicator to the censoring model
+
+  resources:                        # cgroup quota ~48 CPU cores (224 visible), 2 x H100 80 GB
+    cpu_workers: 8                  # processes for Cox / RSF / GBSA tasks
+    threads_per_cpu_worker: 4       # BLAS/OpenMP threads and RSF n_jobs per CPU worker
+    gpu_workers_per_gpu: 1          # neural-model processes per visible GPU
+    threads_per_gpu_worker: 4       # total: 8 x 4 + 2 x 4 = 40 threads <= 48-core quota
+
+  analysis:
+    reference_model: cox_ridge
+    confidence: 0.95
+    # Subsampled budgets: descriptive cross-split summaries (mean, SD, P10-P90, win rate).
+    # Full budget (random 70/30 splits, the Nadeau-Bengio setting): corrected resampled-t
+    # interval, factor 1/R + n_test/n_pool, Holm across the 4 comparisons in each cell.
+    descriptive_quantiles: [0.10, 0.90]
+    formal_inference_budget: full
+    calibration_curve_budgets: [50, full]

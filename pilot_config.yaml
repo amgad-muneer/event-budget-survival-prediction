@@ -1,0 +1,85 @@
+# Pilot configuration - event-budget survival study.
+# Paths: data_dir and output_dir are relative to this project folder unless absolute.
+# Run `python download_data.py` to create data/ from the public DeepSurv files.
+data_dir: data
+output_dir: outputs
+
+seed: 20261030
+outer_repetitions: 1          # pilot: 1 (2 at most, for a reproducibility check)
+test_fraction: 0.30           # stratified by event status (and stored GBSG split, if present)
+validation_fraction: 0.20     # training-derived partition for neural early stopping only
+pilot_budgets: [50, 200, full]
+grid_points: 50               # common evaluation grid per split, up to tau
+
+# Hardware. One neural training process per GPU; tree models on CPU threads.
+cpu_threads: 8                # BLAS/OpenMP/torch threads in each process
+tree_n_jobs: 8                # RSF workers
+device: auto                  # auto -> cuda:0 if a GPU is visible, else cpu; or --device cuda:1
+
+determinism_check: true       # refit each model once at the smallest budget, same seed
+
+# Analysis-set rule (all datasets, identical): records with duration <= 0 (or missing, or an
+# event code outside {0,1}) are excluded from the analysis set; the CSV is never modified.
+# Affects exactly one METABRIC record (censored at time 0). See DATA_PROVENANCE.md.
+analysis_rules: {nonpositive_duration: exclude}
+
+# Horizons: external clinical conventions in source-verified units (DATA_PROVENANCE.md).
+# freeze_design.py checks their support on the DEVELOPMENT pool of outer split 0 only
+# (0.2 <= S(t) <= 0.9 and G(t-) >= 0.3; tau needs G(t-) >= 0.2 and >= 30 expected test
+# patients at risk). Test outcomes are never used. `horizons: auto` would fall back to
+# development-pool event-time quantiles (horizon_rule).
+horizon_rule: {quantiles: [0.25, 0.50, 0.75], primary_index: 1}
+datasets:
+  support:
+    {file: support.csv, time_col: duration, event_col: event, categorical: [],
+     units: days, endpoint: "death from any cause (overall survival)",
+     horizons: [180, 365, 730], primary: 365, tau: 730,
+     horizon_source: "6-month, 1-year and 2-year survival (SUPPORT prognostic model horizon: 180 days)"}
+  metabric:
+    {file: metabric.csv, time_col: duration, event_col: event, categorical: [],
+     units: months, endpoint: "death (benchmark coding; no verified cause-of-death label), as in the DeepSurv METABRIC data",
+     horizons: [60, 120, 180], primary: 120, tau: 180,
+     horizon_source: "5-, 10- and 15-year horizons (conventional breast-cancer horizons)"}
+  gbsg:
+    {file: gbsg.csv, time_col: duration, event_col: event, categorical: [],
+     units: months, endpoint: "recurrence-free survival (recurrence or death); see DATA_PROVENANCE.md",
+     horizons: [24, 36, 60], primary: 60, fallback_primary: 36, tau: 60,
+     horizon_source: "2-, 3- and 5-year recurrence-free survival (conventional breast-cancer horizons)",
+     cohort_membership: gbsg_cohort/gbsg_cohort_membership.csv}
+# cohort_membership is used for outer-split stratification only if recover_gbsg_cohort.py
+# verified a complete match against the original DeepSurv HDF5 file.
+
+# Censoring: the pilot uses marginal IPCW (Kaplan-Meier censoring distribution estimated on the
+# development pool). Stage 0 censoring-model C: SUPPORT 0.540, METABRIC 0.621, GBSG 0.611.
+# The full experiment adds a conditional-IPCW sensitivity analysis (Cox censoring model fitted on
+# the development pool only) for the datasets listed here.
+ipcw:
+  pilot: marginal_km_development_pool
+  conditional_ipcw_sensitivity: [metabric, gbsg]
+# categorical: list columns ONLY after their identity is verified; otherwise all predictors
+# are treated as numeric (median-imputed, z-scored on the training subset).
+
+# One fixed, modest configuration per model (no tuning in the pilot).
+models:
+  cox_ridge: {alpha: 1.0}
+  rsf: {n_estimators: 300, min_samples_leaf: 15, max_features: sqrt}
+  gbsa: {n_estimators: 300, learning_rate: 0.05, max_depth: 2, subsample: 0.8, min_samples_leaf: 10}
+  deepsurv: {hidden: [32, 32], dropout: 0.1, lr: 0.001, batch_size: 256, max_epochs: 500, patience: 20, min_epochs: 20}
+  logistic_hazard: {hidden: [32, 32], dropout: 0.1, lr: 0.001, batch_size: 256, max_epochs: 500,
+                    patience: 20, min_epochs: 20, max_durations: 20, min_durations: 5,
+                    events_per_duration: 5}
+
+# Practical-effect thresholds, fixed BEFORE any model comparison (see report, section D).
+practical_thresholds: {delta_IPA: 0.01, delta_C: 0.01, slope_band: [0.9, 1.1], delta_ICI: 0.02}
+
+# Reduced full-study design used by estimate_feasibility.py.
+reduced_design:
+  repetition_options: [5, 10, 15, 20]
+  budget_ladder: [50, 100, 200, 400, 800, 1600, full]
+  configs_per_model: 4              # small grid, scored on one training-derived validation split
+  stability_repetitions: 5          # outer repetitions that also get bootstrap refits
+  stability_bootstrap: 10           # refits per (repetition, budget, model), fixed hyperparameters
+  neural_procs_per_gpu: 1
+  compute_budget_hours: 20          # wall-clock hours available for the main run
+  safety_factor: 1.5
+  analysis_overhead_hours: 6        # statistics + figures

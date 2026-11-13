@@ -1,0 +1,18 @@
+# Environment in which this repository was verified (Python 3.13, Linux, CPU).
+# Original study environment (Supplementary Section S8; main packages only, no complete lockfile):
+# Python 3.10.16, numpy 2.2.6, pandas 2.2.3, scipy 1.15.3, scikit-learn 1.6.1, scikit-survival 0.25.0,
+# lifelines 0.30.0, pycox 0.3.0, torchtuples 0.2.2, torch 2.14.1+cu126, matplotlib 3.10.3, PyYAML 6.0.2
+numpy==2.5.3
+pandas==2.3.3
+scipy==1.18.1
+PyYAML==6.0.3
+h5py==3.16.0
+matplotlib==3.11.2
+scikit-learn==1.9.1
+scikit-survival==0.28.0
+lifelines==0.30.3
+pycox==0.3.0
+torchtuples==0.2.2
+torch==2.15.0
+# Optional: GPU-utilisation sampling during neural training (run_pilot.py)
+# nvidia-ml-py

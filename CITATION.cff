@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the associated manuscript (preferred-citation)."
+title: "event-budget-survival-prediction"
+abstract: >-
+  Code for an empirical benchmark of ridge-penalized Cox regression, random survival forests,
+  gradient-boosted Cox models, DeepSurv and Logistic-Hazard across nested event budgets in the
+  SUPPORT, METABRIC and Rotterdam-GBSG cohorts.
+type: software
+authors:
+  - family-names: "Muneer"
+    given-names: "Amgad"
+repository-code: "https://github.com/amgad-muneer/event-budget-survival-prediction"
+license: MIT
+keywords:
+  - survival analysis
+  - prediction models
+  - machine learning
+  - calibration
+  - benchmarking
+preferred-citation:
+  type: article
+  title: "When Does Model Complexity Pay Off? An Event-Budget Analysis of Accuracy, Calibration, and Stability in Clinical Survival Prediction"
+  authors:
+    - family-names: "Mahdi"
+      given-names: "Mohamed A."
+    - family-names: "Muneer"
+      given-names: "Amgad"
